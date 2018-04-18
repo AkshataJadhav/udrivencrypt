@@ -39,16 +39,29 @@ class Window(QWidget):
         :return:
             labels_dev: list of labels of connected USB drives.
         """
-        os.system("lsblk -o NAME,TYPE,RM,LABEL -l -n > devices")
+        disk = []
+        vendor = []
+
+        os.system("lsblk -o NAME,TYPE,RM,LABEL,VENDOR -l -n > devices")
         with open('devices') as f:
             for line in f:
                 blk_list = re.split('\s+', line)
-                if str(blk_list[1]) == "part" and int(blk_list[2]) == 1:
-                    names_dev.append(blk_list[0])
-                    labels_dev.append(blk_list[3])
-                    #dev_dict.append({'Name':blk_list[0],'Label':blk_list[3]})
-                    print(names_dev)
-                    print(labels_dev)
+                if int(blk_list[2]) == 1 and blk_list[1] == "disk":
+                    vendor.append(blk_list[3])
+                    disk.append(blk_list[0])
+                else:
+                    if str(blk_list[1]) == "part" and int(blk_list[2]) == 1:
+                        names_dev.append(blk_list[0])
+
+                        # print(blk_list[0][:-1])
+                        if str(blk_list[3]):
+                            labels_dev.append(blk_list[3])
+
+                        else:
+                            for i in disk:
+                                if str(blk_list[0][:-1]) == i:
+                                    labels_dev.append(vendor[disk.index(i)])
+
         return labels_dev
 
     def Entoggle(self):
