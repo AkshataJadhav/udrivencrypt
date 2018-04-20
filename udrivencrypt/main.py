@@ -1,10 +1,13 @@
-from PyQt5.QtWidgets import (QLineEdit, QMessageBox, QProgressBar)
+from PyQt5.QtWidgets import (QLineEdit, QMessageBox, QProgressDialog)
 from PyQt5.QtWidgets import (QLabel,  QHBoxLayout, QVBoxLayout, QWidget, QBoxLayout)
 from PyQt5.QtWidgets import (QApplication, QPushButton)
+from PyQt5.QtWidgets import qApp
+from PyQt5 import QtCore
 import os
 import sys
 import pexpect
 import getpass
+import time
 from udrivencrypt.encrypt import Encrypt
 from udrivencrypt.add import Add
 from udrivencrypt.delete import Delete
@@ -52,8 +55,6 @@ class Window(QWidget):
                 else:
                     if str(blk_list[1]) == "part" and int(blk_list[2]) == 1:
                         names_dev.append(blk_list[0])
-
-                        # print(blk_list[0][:-1])
                         if str(blk_list[3]):
                             labels_dev.append(blk_list[3])
 
@@ -176,15 +177,7 @@ class Window(QWidget):
 
         :return: None
         """
-        self.progressLabel = QLabel('Progress Bar:', self)
-        self.progressBar = QProgressBar(self)
-        self.progressBar.setMaximum(100)
-        self.progressBar.setMinimum(0)
-        self.btn = QPushButton("Cancel", self)
-        self.hboxLayout = QHBoxLayout(self)
-        self.hboxLayout.addWidget(self.progressLabel)
-        self.hboxLayout.addWidget(self.progressBar)
-        self.hboxLayout.addWidget(self.btn)
+
         command = 'umount %s' % "/dev/"+names_dev[labels_dev.index(self.EcomboBox.currentText())]
         command1 = 'wipefs -a %s' % "/dev/"+names_dev[labels_dev.index(self.EcomboBox.currentText())]
         x = os.system("echo %s |sudo -S %s" % (self.password_t.text(), command))
@@ -192,19 +185,7 @@ class Window(QWidget):
         if x == 0:
             y = os.system("echo %s |sudo -S %s" % (self.password_t.text(), command1))
             if y == 0:
-                self.widget = QWidget()
-                self.widget.setLayout(self.hboxLayout)
-                self.widget.setWindowTitle('Dialog with Progressbar')
-                self.widget.setGeometry(50, 50, 500, 100)
-                self.widget_t.close()
-                self.widget.show()
-                connect = 0
-                while connect < 100:
-                    connect += 0.001
-                    self.progressBar.setValue(connect)
-                    self.widget.close()
                 QMessageBox.information(self, 'Message', "Drive is formatted.Now you can set password", QMessageBox.Ok)
-
                 if(QMessageBox.Ok):
                     self.Etextbox.setEnabled(True)
                     self.Etextbox1.setEnabled(True)
@@ -230,7 +211,8 @@ class Window(QWidget):
             self.mapwidget = QWidget()
             self.mapwidget.setLayout(self.hboxLayoutmap)
             self.mapwidget.setWindowTitle('Map Window')
-            self.mapwidget.setGeometry(50, 50, 500, 100)
+            self.mapwidget.setGeometry(100, 100, 400, 100)
+            self.mapwidget.setWindowModality(QtCore.Qt.ApplicationModal)
             self.mapwidget.show()
             btnmapcontinue.clicked.connect(self.create_luks_partition)
         else:
@@ -248,6 +230,20 @@ class Window(QWidget):
         """
         dname = "/dev/"+names_dev[labels_dev.index(self.EcomboBox.currentText())]
         self.mapwidget.close()
+        self.progress = QProgressDialog("Please Wait", None, 0, 100, self)
+        self.progress.setAutoReset(True)
+        self.progress.setAutoClose(True)
+        self.progress.setMinimum(0)
+        self.progress.setMaximum(100)
+        self.progress.resize(300, 100)
+        self.progress.setWindowTitle("Loading, Please Wait!")
+        self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
+
+        self.progress.setValue(0)
+        for count in range(0, 100):
+            self.progress.setValue(count)
+            qApp.processEvents()
+            time.sleep(0.05)
         child = pexpect.spawn('sudo cryptsetup luksFormat %s'% dname)
         child.expect_exact('[sudo] password for %s:'% getpass.getuser())
         child.sendline(self.password_t.text())
@@ -271,6 +267,8 @@ class Window(QWidget):
         if x==0:
             y=os.system("echo %s | sudo -S %s"%(self.password_t.text(),command5))
             if y==0:
+                self.progress.setValue(100)
+                self.progress.hide()
                 choice = QMessageBox.information(self, 'Message',
                                                      "Eject the drive and reconnect it. Now restart application for further use.",
                                                      QMessageBox.Yes)
